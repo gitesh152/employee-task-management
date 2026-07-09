@@ -1,0 +1,116 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+}
+
+model User {
+  id            String         @id @default(cuid())
+  fullName      String
+  email         String         @unique
+  password      String
+  role          Role
+  department    String?
+  designation   String?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  notifications Notification[]
+  refreshTokens RefreshToken[]
+  assignedTasks Task[]         @relation("AssignedTasks")
+
+  @@index([role])
+}
+
+model RefreshToken {
+  id             String    @id @default(cuid())
+  tokenHash      String    @unique
+  userId         String
+  createdAt      DateTime  @default(now())
+  expiresAt      DateTime
+  revokedAt      DateTime?
+  replacedByHash String?
+  ip             String?
+  userAgent      String?
+  rememberMe     Boolean   @default(false)
+  user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@index([userId, revokedAt])
+}
+
+model Task {
+  id            String         @id @default(cuid())
+  title         String
+  description   String         @db.Text
+  priority      TaskPriority   @default(MEDIUM)
+  status        TaskStatus     @default(PENDING)
+  startDate     DateTime
+  dueDate       DateTime
+  assignedToId  String
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  attachment    Attachment?
+  notifications Notification[]
+  assignedTo    User           @relation("AssignedTasks", fields: [assignedToId], references: [id], onDelete: Cascade)
+
+  @@index([assignedToId])
+  @@index([status])
+  @@index([priority])
+  @@index([dueDate])
+}
+
+model Attachment {
+  id         String   @id @default(cuid())
+  fileName   String
+  fileUrl    String
+  fileType   String
+  fileSize   Int
+  taskId     String   @unique
+  uploadedAt DateTime @default(now())
+  task       Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@index([taskId])
+}
+
+model Notification {
+  id        String           @id @default(cuid())
+  userId    String
+  taskId    String?
+  type      NotificationType
+  title     String
+  message   String    @db.Text
+  isRead    Boolean          @default(false)
+  createdAt DateTime         @default(now())
+  task      Task?            @relation(fields: [taskId], references: [id])
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, isRead])
+  @@index([createdAt])
+  @@index([taskId], map: "Notification_taskId_fkey")
+}
+
+enum Role {
+  ADMIN
+  EMPLOYEE
+}
+
+enum TaskPriority {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+enum TaskStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+}
+
+enum NotificationType {
+  TASK_ASSIGNED
+  TASK_DUE
+  TASK_COMPLETED
+}
